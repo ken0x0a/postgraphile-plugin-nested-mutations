@@ -1,20 +1,16 @@
-module.exports = function PostGraphileNestedConnectorsPlugin(
-  builder,
-) {
+module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
   builder.hook('inflection', (inflection, build) => build.extend(inflection, {
     nestedConnectByNodeIdField() {
       return this.camelCase(`connect_by_${build.nodeIdFieldName}`);
     },
     nestedConnectByKeyField(options) {
-      const {
-        constraint,
-      } = options;
-      return this.camelCase(`connect_by_${constraint.keyAttributes.map(k => k.name).join('_and_')}`);
+      const { constraint } = options;
+      return this.camelCase(
+        `connect_by_${constraint.keyAttributes.map(k => k.name).join('_and_')}`,
+      );
     },
     nestedConnectByNodeIdInputType(options) {
-      const {
-        table,
-      } = options;
+      const { table } = options;
 
       const tableFieldName = inflection.tableFieldName(table);
 
@@ -25,9 +21,7 @@ module.exports = function PostGraphileNestedConnectorsPlugin(
         table,
         constraint: {
           name,
-          tags: {
-            name: tagName,
-          },
+          tags: { name: tagName },
         },
       } = options;
 
@@ -50,21 +44,10 @@ module.exports = function PostGraphileNestedConnectorsPlugin(
     return extend(build, {
       pgNestedTableConnectorFields: {},
       pgNestedTableConnect: async ({
-        nestedField,
-        connectorField,
-        input,
-        pgClient,
-        parentRow,
+        nestedField, connectorField, input, pgClient, parentRow,
       }) => {
-        const {
-          foreignTable,
-          keys,
-          foreignKeys,
-        } = nestedField;
-        const {
-          isNodeIdConnector,
-          constraint,
-        } = connectorField;
+        const { foreignTable, keys, foreignKeys } = nestedField;
+        const { isNodeIdConnector, constraint } = connectorField;
 
         const ForeignTableType = pgGetGqlTypeByTypeIdAndModifier(foreignTable.type.id, null);
         let where = '';
@@ -81,9 +64,7 @@ module.exports = function PostGraphileNestedConnectorsPlugin(
           }
           where = sql.fragment`${sql.join(
             primaryKeys.map(
-              (key, idx) => sql.fragment`${sql.identifier(
-                key.name,
-              )} = ${gql2pg(
+              (key, idx) => sql.fragment`${sql.identifier(key.name)} = ${gql2pg(
                 identifiers[idx],
                 key.type,
                 key.typeModifier,
@@ -96,7 +77,11 @@ module.exports = function PostGraphileNestedConnectorsPlugin(
           where = sql.fragment`${sql.join(
             foreignPrimaryKeys.map(
               k => sql.fragment`
-                ${sql.identifier(k.name)} = ${gql2pg(input[inflection.column(k)], k.type, k.typeModifier)}
+                ${sql.identifier(k.name)} = ${gql2pg(
+  input[inflection.column(k)],
+  k.type,
+  k.typeModifier,
+)}
               `,
             ),
             ') and (',
@@ -106,7 +91,14 @@ module.exports = function PostGraphileNestedConnectorsPlugin(
         const query = parentRow
           ? sql.query`
             update ${sql.identifier(foreignTable.namespace.name, foreignTable.name)}
-            set ${sql.join(keys.map((k, i) => sql.fragment`${sql.identifier(k.name)} = ${sql.value(parentRow[foreignKeys[i].name])}`), ', ')}
+            set ${sql.join(
+    keys.map(
+      (k, i) => sql.fragment`${sql.identifier(k.name)} = ${sql.value(
+        parentRow[foreignKeys[i].name],
+      )}`,
+    ),
+    ', ',
+  )}
             where ${where}
             returning *`
           : sql.query`
@@ -131,11 +123,7 @@ module.exports = function PostGraphileNestedConnectorsPlugin(
       pgGetGqlInputTypeByTypeIdAndModifier: getGqlInputTypeByTypeIdAndModifier,
       pgOmit: omit,
       pgNestedTableConnectorFields,
-      graphql: {
-        GraphQLNonNull,
-        GraphQLInputObjectType,
-        GraphQLID,
-      },
+      graphql: { GraphQLNonNull, GraphQLInputObjectType, GraphQLID },
     } = build;
     const {
       scope: { isRootMutation },
@@ -177,12 +165,17 @@ module.exports = function PostGraphileNestedConnectorsPlugin(
                   name: inflection.nestedConnectByKeyInputType({ table, constraint }),
                   description: `The fields on \`${tableFieldName}\` to look up the row to connect.`,
                   fields: () => keys
-                    .map(k => Object.assign({}, {
-                      [inflection.column(k)]: {
-                        description: k.description,
-                        type: new GraphQLNonNull(getGqlInputTypeByTypeIdAndModifier(k.typeId, k.typeModifier)),
+                    .map(k => Object.assign(
+                      {},
+                      {
+                        [inflection.column(k)]: {
+                          description: k.description,
+                          type: new GraphQLNonNull(
+                            getGqlInputTypeByTypeIdAndModifier(k.typeId, k.typeModifier),
+                          ),
+                        },
                       },
-                    }))
+                    ))
                     .reduce((res, o) => Object.assign(res, o), {}),
                 },
                 {

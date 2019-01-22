@@ -58,7 +58,308 @@ test(
 
       const data = result.data.updateParentById.parent;
       expect(data.childrenByParentId.nodes).toHaveLength(3);
-      data.childrenByParentId.nodes.map(n => expect(n.parentId).toBe(data.id));
+      data.childrenByParentId.nodes.map((n) =>
+        expect(n.parentId).toBe(data.id),
+      );
+    },
+  }),
+);
+
+test(
+  'deleteById removes records',
+  withSchema({
+    setup: `
+      create table p.parent (
+        id serial primary key,
+        name text not null
+      );
+
+      create table p.child (
+        id serial primary key,
+        parent_id integer,
+        name text not null,
+        constraint child_parent_fkey foreign key (parent_id)
+          references p.parent (id)
+      );
+      insert into p.parent values(1, 'test');
+      insert into p.child values(95, 1, 'test child 1');
+      insert into p.child values(96, 1, 'test child 2');
+      insert into p.child values(97, 1, 'test child 3');
+    `,
+    test: async ({ schema, pgClient }) => {
+      const query = `
+        mutation {
+          updateParentById(
+            input: {
+              id: 1
+              parentPatch: {
+                childrenUsingId: {
+                  deleteById: [{id: 96}, {id: 97}]
+                  create: [{
+                    id: 98
+                    name: "test child 4"
+                  }, {
+                    id: 99
+                    name: "test child 5"
+                  }]
+                }
+              }
+            }
+          ) {
+            parent {
+              id
+              name
+              childrenByParentId {
+                nodes {
+                  id
+                  parentId
+                  name
+                }
+              }
+            }
+          }
+        }
+      `;
+      expect(schema).toMatchSnapshot();
+
+      const result = await graphql(schema, query, null, { pgClient });
+      expect(result).not.toHaveProperty('errors');
+
+      const data = result.data.updateParentById.parent;
+      expect(data.childrenByParentId.nodes).toHaveLength(3);
+      data.childrenByParentId.nodes.map((n) =>
+        expect(n.parentId).toBe(data.id),
+      );
+      expect(data.childrenByParentId.nodes.map(n => n.id))
+        .toEqual([95, 98, 99]);
+    },
+  }),
+);
+
+test(
+  'deleteById is not available if foreign table has @omit delete',
+  withSchema({
+    setup: `
+      create table p.parent (
+        id serial primary key,
+        name text not null
+      );
+
+      create table p.child (
+        id integer primary key,
+        parent_id integer,
+        name text not null,
+        constraint child_parent_fkey foreign key (parent_id)
+          references p.parent (id)
+      );
+
+      comment on table p.child is E'@omit delete';
+
+      insert into p.parent values(1, 'test');
+      insert into p.child values(99, 1, 'test child');
+    `,
+    test: async ({ schema, pgClient }) => {
+      const query = `
+        mutation {
+          updateParentById(
+            input: {
+              id: 1
+              parentPatch: {
+                childrenUsingId: {
+                  deleteById: {id: 99}
+                  create: [{
+                    id: 1
+                    name: "test child 2"
+                  }, {
+                    id: 2
+                    name: "test child 3"
+                  }]
+                }
+              }
+            }
+          ) {
+            parent {
+              id
+              name
+              childrenByParentId {
+                nodes {
+                  id
+                  parentId
+                  name
+                }
+              }
+            }
+          }
+        }
+      `;
+      expect(schema).toMatchSnapshot();
+
+      const result = await graphql(schema, query, null, { pgClient });
+      expect(result).toHaveProperty('errors');
+      expect(result.errors[0].message).toMatch(/"deleteById" is not defined/);
+    },
+  }),
+);
+
+test(
+  'deleteByNodeId removes records',
+  withSchema({
+    setup: `
+      create table p.parent (
+        id serial primary key,
+        name text not null
+      );
+
+      create table p.child (
+        id serial primary key,
+        parent_id integer,
+        name text not null,
+        constraint child_parent_fkey foreign key (parent_id)
+          references p.parent (id)
+      );
+      insert into p.parent values(1, 'test');
+      insert into p.child values(95, 1, 'test child 1');
+      insert into p.child values(96, 1, 'test child 1');
+      insert into p.child values(97, 1, 'test child 1');
+    `,
+    test: async ({ schema, pgClient }) => {
+      const lookupQuery = `
+        query {
+          childById(id: 96) {
+            nodeId
+          }
+        }
+      `;
+      const lookupResult = await graphql(schema, lookupQuery, null, {
+        pgClient,
+      });
+      const { nodeId } = lookupResult.data.childById;
+      expect(nodeId).not.toBeUndefined();
+
+      const query = `
+        mutation {
+          updateParentById(
+            input: {
+              id: 1
+              parentPatch: {
+                childrenUsingId: {
+                  deleteByNodeId: [{nodeId: "${nodeId}"}]
+                  create: [{
+                    id: 98
+                    name: "test child 4"
+                  }, {
+                    id: 99
+                    name: "test child 5"
+                  }]
+                }
+              }
+            }
+          ) {
+            parent {
+              id
+              name
+              childrenByParentId {
+                nodes {
+                  id
+                  parentId
+                  name
+                }
+              }
+            }
+          }
+        }
+      `;
+      expect(schema).toMatchSnapshot();
+
+      const result = await graphql(schema, query, null, { pgClient });
+      expect(result).not.toHaveProperty('errors');
+
+      const data = result.data.updateParentById.parent;
+      expect(data.childrenByParentId.nodes).toHaveLength(4);
+      data.childrenByParentId.nodes.map((n) =>
+        expect(n.parentId).toBe(data.id),
+      );
+      expect(data.childrenByParentId.nodes.map(n => n.id))
+        .toEqual([95, 97, 98, 99]);
+    },
+  }),
+);
+
+test(
+  'deleteByNodeId is not available if foreign table has @omit delete',
+  withSchema({
+    setup: `
+      create table p.parent (
+        id serial primary key,
+        name text not null
+      );
+
+      create table p.child (
+        id integer primary key,
+        parent_id integer,
+        name text not null,
+        constraint child_parent_fkey foreign key (parent_id)
+          references p.parent (id)
+      );
+
+      comment on table p.child is E'@omit delete';
+
+      insert into p.parent values(1, 'test');
+      insert into p.child values(99, 1, 'test child');
+    `,
+    test: async ({ schema, pgClient }) => {
+      const lookupQuery = `
+        query {
+          childById(id: 99) {
+            nodeId
+          }
+        }
+      `;
+      const lookupResult = await graphql(schema, lookupQuery, null, {
+        pgClient,
+      });
+      const { nodeId } = lookupResult.data.childById;
+      expect(nodeId).not.toBeUndefined();
+
+      const query = `
+        mutation {
+          updateParentById(
+            input: {
+              id: 1
+              parentPatch: {
+                childrenUsingId: {
+                  deleteByNodeId: {nodeId: "${nodeId}"}
+                  create: [{
+                    id: 1
+                    name: "test child 2"
+                  }, {
+                    id: 2
+                    name: "test child 3"
+                  }]
+                }
+              }
+            }
+          ) {
+            parent {
+              id
+              name
+              childrenByParentId {
+                nodes {
+                  id
+                  parentId
+                  name
+                }
+              }
+            }
+          }
+        }
+      `;
+      expect(schema).toMatchSnapshot();
+
+      const result = await graphql(schema, query, null, { pgClient });
+      expect(result).toHaveProperty('errors');
+      expect(result.errors[0].message)
+        .toMatch(/"deleteByNodeId" is not defined/);
     },
   }),
 );
@@ -121,7 +422,9 @@ test(
 
       const data = result.data.updateParentById.parent;
       expect(data.childrenByParentId.nodes).toHaveLength(2);
-      data.childrenByParentId.nodes.map(n => expect(n.parentId).toBe(data.id));
+      data.childrenByParentId.nodes.map((n) =>
+        expect(n.parentId).toBe(data.id),
+      );
     },
   }),
 );
@@ -369,7 +672,9 @@ test(
 
       const data = result.data.updateParentById.parent;
       expect(data.childrenByParentId.nodes).toHaveLength(1);
-      data.childrenByParentId.nodes.map(n => expect(n.parentId).toBe(data.id));
+      data.childrenByParentId.nodes.map((n) =>
+        expect(n.parentId).toBe(data.id),
+      );
       expect(data.childrenByParentId.nodes[0].name).toEqual('renamed child');
     },
   }),
@@ -403,7 +708,9 @@ test(
           }
         }
       `;
-      const lookupResult = await graphql(schema, lookupQuery, null, { pgClient });
+      const lookupResult = await graphql(schema, lookupQuery, null, {
+        pgClient,
+      });
       const { nodeId } = lookupResult.data.childById;
       expect(nodeId).not.toBeUndefined();
 
@@ -445,7 +752,90 @@ test(
 
       const data = result.data.updateParentById.parent;
       expect(data.childrenByParentId.nodes).toHaveLength(1);
-      data.childrenByParentId.nodes.map(n => expect(n.parentId).toBe(data.id));
+      data.childrenByParentId.nodes.map((n) =>
+        expect(n.parentId).toBe(data.id),
+      );
+      expect(data.childrenByParentId.nodes[0].name).toEqual('renamed child');
+    },
+  }),
+);
+
+test(
+  'updateByNodeId with composite primary key works',
+  withSchema({
+    setup: `
+      create table p.parent (
+        id serial primary key,
+        name text not null
+      );
+      
+      create table p.child (
+        id integer not null,
+        parent_id integer,
+        name text not null,
+        constraint child_pkey primary key (id, parent_id, name),
+        constraint child_parent_fkey foreign key (parent_id)
+          references p.parent (id)
+      );
+
+      insert into p.parent values(1, 'test parent');
+      insert into p.child values(1, 1, 'test child');
+    `,
+    test: async ({ schema, pgClient }) => {
+      const lookupQuery = `
+        query {
+          childByIdAndParentIdAndName(id: 1, parentId: 1, name: "test child") {
+            nodeId
+          }
+        }
+      `;
+      const lookupResult = await graphql(schema, lookupQuery, null, {
+        pgClient,
+      });
+      const { nodeId } = lookupResult.data.childByIdAndParentIdAndName;
+      expect(nodeId).not.toBeUndefined();
+
+      const query = `
+        mutation {
+          updateParentById(
+            input: {
+              id: 1
+              parentPatch: {
+                childrenUsingId: {
+                  updateByNodeId: {
+                    nodeId: "${nodeId}"
+                    childPatch: {
+                      name: "renamed child"
+                    }
+                  }
+                }
+              }
+            }
+          ) {
+            parent {
+              id
+              name
+              childrenByParentId {
+                nodes {
+                  id
+                  parentId
+                  name
+                }
+              }
+            }
+          }
+        }
+      `;
+      expect(schema).toMatchSnapshot();
+
+      const result = await graphql(schema, query, null, { pgClient });
+      expect(result).not.toHaveProperty('errors');
+
+      const data = result.data.updateParentById.parent;
+      expect(data.childrenByParentId.nodes).toHaveLength(1);
+      data.childrenByParentId.nodes.map((n) =>
+        expect(n.parentId).toBe(data.id),
+      );
       expect(data.childrenByParentId.nodes[0].name).toEqual('renamed child');
     },
   }),
@@ -575,7 +965,7 @@ test(
 );
 
 test(
-  'forward nested mutation during update',
+  'updateByNodeId does not error',
   withSchema({
     setup: `
       CREATE TABLE p."user" (
@@ -633,6 +1023,52 @@ test(
             }
           ) {
             user {
+              name
+            }
+          }
+        }
+      `;
+      expect(schema).toMatchSnapshot();
+
+      const result = await graphql(schema, query, null, { pgClient });
+      expect(result).not.toHaveProperty('errors');
+    },
+  }),
+);
+
+test(
+  'update with no row matched works',
+  withSchema({
+    setup: `
+      create table p.parent (
+        id serial primary key,
+        name text not null
+      );
+
+      create table p.child (
+        id serial primary key,
+        parent_id integer,
+        name text not null,
+        constraint child_parent_fkey foreign key (parent_id)
+          references p.parent (id)
+      );
+
+      insert into p.parent values(1, 'test parent');
+      insert into p.child values(1, 1, 'test child');
+    `,
+    test: async ({ schema, pgClient }) => {
+      const query = `
+        mutation {
+          updateParentById(
+            input: {
+              id: 2
+              parentPatch: {
+                name: "other name"
+              }
+            }
+          ) {
+            parent {
+              id
               name
             }
           }

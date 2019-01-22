@@ -1,0 +1,64 @@
+extends:
+  - ./tslint.base.yml
+  - ./tslint.etc.yml
+# https://palantir.github.io/tslint/rules/
+rules:
+  no-implicit-dependencies: [true, [
+    # 
+    "__test__",
+    "@assets",
+    "src",
+    "@src",
+    "@storybook", "@story",
+    "@web",
+
+    # react-navigation
+    "react-native-safe-area-view",
+    "react-navigation-stack",
+
+    # Expo
+    "react-native-svg",
+    "react-native-vector-icons",
+    "react-native-gesture-handler",
+    "react-native-screens",
+    "react-native-reanimated",
+    "react-native-sentry",
+
+    "hoist-non-react-statics",
+
+    # Postgraphile
+    graphile-build,
+
+    # apollo
+    "apollo-cache",
+
+    # devDependencies
+    "detox",
+    "detox-expo-helpers",
+    "react-test-renderer",
+    "tsconfig-paths",
+    "webpack",
+    "chalk",
+    "dotenv",
+
+    # Others
+    "@sentry/types",
+    "lodash",
+    "nanoid",
+    "jsonwebtoken",
+  ]]
+  no-submodule-imports: [true,
+    "@lib",
+    "src",
+    "__test__",
+    "nanoid",
+    "tsconfig-paths",
+    
+    "@src",
+    "detox",
+    "moment",
+    "numeral",
+    "react-native-vector-icons",
+    "@storybook", "@story",
+    "@assets",
+  ]

@@ -1,53 +1,50 @@
 module.exports = function PostGraphileNestedUpdatersPlugin(
   builder,
+  { nestedMutationsTableNameWhiteList } = {},
 ) {
   builder.hook('inflection', (inflection, build) => build.extend(inflection, {
     nestedUpdateByNodeIdField() {
       return this.camelCase(`update_by_${build.nodeIdFieldName}`);
     },
     nestedUpdateByKeyField(options) {
-      const {
-        constraint,
-      } = options;
-      return this.camelCase(`update_by_${constraint.keyAttributes.map(k => k.name).join('_and_')}`);
+      const { constraint } = options;
+      return this.camelCase(
+        `update_by_${constraint.keyAttributes.map(k => k.name).join('_and_')}`,
+      );
     },
     nestedUpdateByNodeIdInputType(options) {
-      const {
-        table,
-        constraint,
-      } = options;
+      const { table, constraint } = options;
 
       const tableFieldName = this.tableFieldName(table);
       const parentTableFieldName = this.tableFieldName(constraint.class);
       const constraintName = constraint.tags.name || constraint.name;
 
-      return this.upperCamelCase(`${tableFieldName}_on_${parentTableFieldName}_for_${constraintName}_node_id_update`);
+      return this.upperCamelCase(
+        `${tableFieldName}_on_${parentTableFieldName}_for_${constraintName}_node_id_update`,
+      );
     },
     nestedUpdatePatchType(options) {
-      const {
-        table,
-        constraint,
-      } = options;
+      const { table, constraint } = options;
 
       const tableFieldName = this.tableFieldName(table);
       const parentTableFieldName = this.tableFieldName(constraint.class);
       const constraintName = constraint.tags.name || constraint.name;
 
-      return this.camelCase(`update_${tableFieldName}_on_${parentTableFieldName}_for_${constraintName}_patch`);
+      return this.camelCase(
+        `update_${tableFieldName}_on_${parentTableFieldName}_for_${constraintName}_patch`,
+      );
     },
     nestedUpdateByKeyInputType(options) {
-      const {
-        table,
-        constraint,
-        keyConstraint,
-      } = options;
+      const { table, constraint, keyConstraint } = options;
 
       const tableFieldName = this.tableFieldName(table);
       const parentTableFieldName = this.tableFieldName(constraint.class);
       const constraintName = constraint.tags.name || constraint.name;
       const keyConstraintName = keyConstraint.tags.name || keyConstraint.name;
 
-      return this.upperCamelCase(`${tableFieldName}_on_${parentTableFieldName}_for_${constraintName}_using_${keyConstraintName}_update`);
+      return this.upperCamelCase(
+        `${tableFieldName}_on_${parentTableFieldName}_for_${constraintName}_using_${keyConstraintName}_update`,
+      );
     },
   }));
 
@@ -73,13 +70,8 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
         where,
         context,
       }) => {
-        const {
-          foreignTable,
-        } = nestedField;
-        const {
-          isNodeIdUpdater,
-          constraint,
-        } = connectorField;
+        const { foreignTable } = nestedField;
+        const { isNodeIdUpdater, constraint } = connectorField;
 
         let keyWhere = '';
 
@@ -96,9 +88,7 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
           }
           keyWhere = sql.fragment`${sql.join(
             primaryKeys.map(
-              (key, idx) => sql.fragment`${sql.identifier(
-                key.name,
-              )} = ${gql2pg(
+              (key, idx) => sql.fragment`${sql.identifier(key.name)} = ${gql2pg(
                 identifiers[idx],
                 key.type,
                 key.typeModifier,
@@ -111,16 +101,18 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
           keyWhere = sql.fragment`${sql.join(
             foreignPrimaryKeys.map(
               k => sql.fragment`
-                ${sql.identifier(k.name)} = ${gql2pg(input[inflection.column(k)], k.type, k.typeModifier)}
+                ${sql.identifier(k.name)} = ${gql2pg(
+  input[inflection.column(k)],
+  k.type,
+  k.typeModifier,
+)}
               `,
             ),
             ') and (',
           )}`;
         }
 
-        const patchField = input[
-          inflection.patchField(inflection.tableFieldName(foreignTable))
-        ];
+        const patchField = input[inflection.patchField(inflection.tableFieldName(foreignTable))];
         const sqlColumns = [];
         const sqlValues = [];
         foreignTable.attributes.forEach((attr) => {
@@ -171,11 +163,7 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
       pgGetGqlTypeByTypeIdAndModifier,
       pgOmit: omit,
       pgNestedTableUpdaterFields,
-      graphql: {
-        GraphQLNonNull,
-        GraphQLInputObjectType,
-        GraphQLID,
-      },
+      graphql: { GraphQLNonNull, GraphQLInputObjectType, GraphQLID },
     } = build;
     const {
       scope: { isRootMutation },
@@ -188,6 +176,7 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
     introspectionResultsByKind.class
       .filter(cls => cls.namespace && cls.isSelectable)
       .forEach((table) => {
+        if (nestedMutationsTableNameWhiteList && !nestedMutationsTableNameWhiteList[table.name]) return;
         pgNestedTableUpdaterFields[table.id] = pgNestedTableUpdaterFields[table.id] || {};
         introspectionResultsByKind.constraint
           .filter(con => con.type === 'f')
@@ -195,18 +184,21 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
           .filter(con => !omit(con, 'read'))
           .filter(con => !con.keyAttributes.some(key => omit(key, 'read')))
           .forEach((constraint) => {
-            const foreignTable = constraint.classId === table.id
-              ? constraint.foreignClass
-              : constraint.class;
-            const ForeignTableType = pgGetGqlTypeByTypeIdAndModifier(
-              foreignTable.type.id,
-              null,
-            );
+            const foreignTable = constraint.classId === table.id ? constraint.foreignClass : constraint.class;
+
+            /**
+             * whitelist
+             */
+            if (
+              nestedMutationsTableNameWhiteList
+              && nestedMutationsTableNameWhiteList[table.name]
+              && !nestedMutationsTableNameWhiteList[table.name][foreignTable.name]
+            ) return;
+
+            const ForeignTableType = pgGetGqlTypeByTypeIdAndModifier(foreignTable.type.id, null);
             const foreignTableFieldName = inflection.tableFieldName(foreignTable);
             const patchFieldName = inflection.patchField(foreignTableFieldName);
-            const ForeignTablePatch = getTypeByName(
-              inflection.patchType(ForeignTableType.name),
-            );
+            const ForeignTablePatch = getTypeByName(inflection.patchType(ForeignTableType.name));
 
             const patchType = newWithHooks(
               GraphQLInputObjectType,
@@ -220,7 +212,8 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
                     .map(k => Object.assign({}, { [k]: ForeignTablePatch._fields[k] }))
                     .reduce((res, o) => Object.assign(res, o), {});
                 },
-              }, {
+              },
+              {
                 isNestedMutationPatchType: true,
                 pgInflection: foreignTable,
                 pgFieldInflection: constraint,
@@ -247,11 +240,18 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
                   constraint: keyConstraint,
                   keys: keyConstraint.keyAttributes,
                   isNodeIdUpdater: false,
-                  fieldName: inflection.nestedUpdateByKeyField({ table: foreignTable, constraint: keyConstraint }),
+                  fieldName: inflection.nestedUpdateByKeyField({
+                    table: foreignTable,
+                    constraint: keyConstraint,
+                  }),
                   field: newWithHooks(
                     GraphQLInputObjectType,
                     {
-                      name: inflection.nestedUpdateByKeyInputType({ table: foreignTable, constraint, keyConstraint }),
+                      name: inflection.nestedUpdateByKeyInputType({
+                        table: foreignTable,
+                        constraint,
+                        keyConstraint,
+                      }),
                       description: `The fields on \`${foreignTableFieldName}\` to look up the row to update.`,
                       fields: () => Object.assign(
                         {},
@@ -262,12 +262,20 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
                           },
                         },
                         keys
-                          .map(k => Object.assign({}, {
-                            [inflection.column(k)]: {
-                              description: k.description,
-                              type: new GraphQLNonNull(pgGetGqlInputTypeByTypeIdAndModifier(k.typeId, k.typeModifier)),
+                          .map(k => Object.assign(
+                            {},
+                            {
+                              [inflection.column(k)]: {
+                                description: k.description,
+                                type: new GraphQLNonNull(
+                                  pgGetGqlInputTypeByTypeIdAndModifier(
+                                    k.typeId,
+                                    k.typeModifier,
+                                  ),
+                                ),
+                              },
                             },
-                          }))
+                          ))
                           .reduce((res, o) => Object.assign(res, o), {}),
                       ),
                     },

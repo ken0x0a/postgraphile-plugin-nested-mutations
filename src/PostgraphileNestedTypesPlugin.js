@@ -3,40 +3,37 @@ module.exports = function PostGraphileNestedTypesPlugin(
   {
     nestedMutationsSimpleFieldNames = false,
     nestedMutationsDeleteOthers = true,
-    nestedMutationsOldUniqueFields = false
-  } = {}
+    nestedMutationsOldUniqueFields = false,
+    nestedMutationsTableNameWhiteList,
+  } = {},
 ) {
-  builder.hook("inflection", (inflection, build) =>
+  builder.hook('inflection', (inflection, build) =>
     build.extend(inflection, {
       nestedConnectorType(options) {
         const {
           constraint: {
             name,
-            tags: { name: tagName }
+            tags: { name: tagName },
           },
-          isForward
-        } = options;
-        return inflection.upperCamelCase(
-          `${tagName || name}_${isForward ? "" : "Inverse"}_input`
-        );
+          isForward,
+        } = options
+        return inflection.upperCamelCase(`${tagName || name}_${isForward ? '' : 'Inverse'}_input`)
       },
       nestedCreateInputType(options) {
         const {
           constraint: {
             name,
-            tags: { name: tagName }
+            tags: { name: tagName },
           },
-          foreignTable
-        } = options;
-        return inflection.upperCamelCase(
-          `${tagName || name}_${foreignTable.name}_create_input`
-        );
-      }
-    })
-  );
+          foreignTable,
+        } = options
+        return inflection.upperCamelCase(`${tagName || name}_${foreignTable.name}_create_input`)
+      },
+    }),
+  )
 
-  builder.hook("build", build => {
-    const { extend, pgOmit: omit, inflection } = build;
+  builder.hook('build', (build) => {
+    const { extend, pgOmit: omit, inflection } = build
 
     return extend(build, {
       pgNestedPluginForwardInputTypes: {},
@@ -47,34 +44,29 @@ module.exports = function PostGraphileNestedTypesPlugin(
           constraint: {
             keyAttributes: keys,
             foreignKeyAttributes: foreignKeys,
-            tags: {
-              fieldName,
-              foreignFieldName,
-              forwardMutationName,
-              reverseMutationName
-            }
+            tags: { fieldName, foreignFieldName, forwardMutationName, reverseMutationName },
           },
           table,
           isForward,
-          foreignTable
-        } = options;
-        const tableFieldName = inflection.tableFieldName(foreignTable);
-        const keyNames = keys.map(k => k.name);
-        const foreignKeyNames = foreignKeys.map(k => k.name);
+          foreignTable,
+        } = options
+        const tableFieldName = inflection.tableFieldName(foreignTable)
+        const keyNames = keys.map((k) => k.name)
+        const foreignKeyNames = foreignKeys.map((k) => k.name)
 
         const constraints = foreignTable.constraints
-          .filter(con => con.type === "f")
-          .filter(con => con.foreignClass.id === table.id)
-          .filter(con => !omit(con, "read"));
+          .filter((con) => con.type === 'f')
+          .filter((con) => con.foreignClass.id === table.id)
+          .filter((con) => !omit(con, 'read'))
 
-        const multipleFKs = constraints.length > 1;
+        const multipleFKs = constraints.length > 1
 
         const isUnique = !!foreignTable.constraints.find(
-          c =>
-            (c.type === "p" || c.type === "u") &&
+          (c) =>
+            (c.type === 'p' || c.type === 'u') &&
             c.keyAttributeNums.length === keys.length &&
-            c.keyAttributeNums.every((n, i) => keys[i].num === n)
-        );
+            c.keyAttributeNums.every((n, i) => keys[i].num === n),
+        )
 
         const computedReverseMutationName = inflection.camelCase(
           `${
@@ -83,51 +75,47 @@ module.exports = function PostGraphileNestedTypesPlugin(
                 ? inflection.pluralize(tableFieldName)
                 : tableFieldName
               : inflection.pluralize(tableFieldName)
-          }`
-        );
+          }`,
+        )
 
         if (isForward) {
           if (forwardMutationName) {
-            return forwardMutationName;
+            return forwardMutationName
           }
           if (fieldName) {
-            return fieldName;
+            return fieldName
           }
           if (nestedMutationsSimpleFieldNames && !multipleFKs) {
-            return inflection.camelCase(`${tableFieldName}`);
+            return inflection.camelCase(`${tableFieldName}`)
           }
-          return inflection.camelCase(
-            `${tableFieldName}_to_${keyNames.join("_and_")}`
-          );
+          return inflection.camelCase(`${tableFieldName}_to_${keyNames.join('_and_')}`)
         }
 
         // reverse mutation
         if (reverseMutationName) {
-          return reverseMutationName;
+          return reverseMutationName
         }
         if (foreignFieldName) {
-          return foreignFieldName;
+          return foreignFieldName
         }
         if (!multipleFKs) {
           return nestedMutationsSimpleFieldNames
             ? computedReverseMutationName
             : inflection.camelCase(
-                `${computedReverseMutationName}_using_${foreignKeyNames.join(
-                  "_and_"
-                )}`
-              );
+                `${computedReverseMutationName}_using_${foreignKeyNames.join('_and_')}`,
+              )
         }
         // tables have mutliple relations between them
         return inflection.camelCase(
-          `${computedReverseMutationName}_to_${keyNames.join(
-            "_and_"
-          )}_using_${foreignKeyNames.join("_and_")}`
-        );
-      }
-    });
-  });
+          `${computedReverseMutationName}_to_${keyNames.join('_and_')}_using_${foreignKeyNames.join(
+            '_and_',
+          )}`,
+        )
+      },
+    })
+  })
 
-  builder.hook("GraphQLInputObjectType:fields", (fields, build, context) => {
+  builder.hook('GraphQLInputObjectType:fields', (fields, build, context) => {
     const {
       inflection,
       newWithHooks,
@@ -137,111 +125,120 @@ module.exports = function PostGraphileNestedTypesPlugin(
       pgNestedPluginForwardInputTypes,
       pgNestedPluginReverseInputTypes,
       pgNestedTableConnectorFields,
+      pgNestedTableDeleterFields,
       pgNestedTableUpdaterFields,
       pgNestedFieldName,
-      graphql: {
-        GraphQLInputObjectType,
-        GraphQLList,
-        GraphQLNonNull,
-        GraphQLBoolean
-      }
-    } = build;
+      graphql: { GraphQLInputObjectType, GraphQLList, GraphQLNonNull, GraphQLBoolean },
+    } = build
 
     const {
       scope: { isInputType, isPgRowType, pgIntrospection: table },
-      GraphQLInputObjectType: gqlType
-    } = context;
+      GraphQLInputObjectType: gqlType,
+    } = context
 
     if (!isInputType || !isPgRowType) {
-      return fields;
+      return fields
     }
 
+    /**
+     * whitelist
+     */
+    if (nestedMutationsTableNameWhiteList && !nestedMutationsTableNameWhiteList[table.name])
+      return fields
+
     const foreignKeyConstraints = introspectionResultsByKind.constraint
-      .filter(con => con.type === "f")
-      .filter(
-        con => con.classId === table.id || con.foreignClassId === table.id
-      )
-      .filter(con => !omit(con, "read"));
+      .filter((con) => con.type === 'f')
+      .filter((con) => con.classId === table.id || con.foreignClassId === table.id)
+      .filter((con) => !omit(con, 'read'))
 
     if (!foreignKeyConstraints.length) {
       // table has no foreign relations
-      return fields;
+      return fields
     }
 
-    const tableTypeName = gqlType.name;
+    const tableTypeName = gqlType.name
+    // console.log({ tableTypeName, tableName: table.name })
+    pgNestedPluginForwardInputTypes[table.id] = []
+    pgNestedPluginReverseInputTypes[table.id] = []
 
-    pgNestedPluginForwardInputTypes[table.id] = [];
-    pgNestedPluginReverseInputTypes[table.id] = [];
-
-    foreignKeyConstraints.forEach(constraint => {
-      const isForward = constraint.classId === table.id;
+    foreignKeyConstraints.forEach((constraint) => {
+      const isForward = constraint.classId === table.id
       const foreignTable = isForward
         ? introspectionResultsByKind.classById[constraint.foreignClassId]
-        : introspectionResultsByKind.classById[constraint.classId];
+        : introspectionResultsByKind.classById[constraint.classId]
 
       // istanbul ignore next
       if (!foreignTable) {
-        throw new Error(
-          `Could not find the foreign table (constraint: ${constraint.name})`
-        );
+        throw new Error(`Could not find the foreign table (constraint: ${constraint.name})`)
       }
 
-      const foreignTableName = inflection.tableFieldName(foreignTable);
+      /**
+       * whitelist
+       */
+      if (
+        nestedMutationsTableNameWhiteList &&
+        nestedMutationsTableNameWhiteList[table.name] &&
+        !nestedMutationsTableNameWhiteList[table.name][foreignTable.name]
+      )
+        return
+
+      const foreignTableName = inflection.tableFieldName(foreignTable)
+      // console.debug({ foreignTableName, tableName: table.name })
+      // console.debug({ foreignTableName: foreignTable.name, tableName: table.name })
 
       const foreignUniqueConstraints = foreignTable.constraints
-        .filter(con => con.type === "u" || con.type === "p")
-        .filter(con => !con.keyAttributes.some(key => omit(key)));
+        .filter((con) => con.type === 'u' || con.type === 'p')
+        .filter((con) => !con.keyAttributes.some((key) => omit(key)))
 
-      const connectable = !!foreignUniqueConstraints.length;
+      const connectable = !!foreignUniqueConstraints.length
       const creatable =
-        !omit(foreignTable, "create") &&
-        !omit(constraint, "create") &&
-        !constraint.keyAttributes.some(key => omit(key, "create"));
-      const updateable =
-        !omit(foreignTable, "update") && !omit(constraint, "update");
+        !omit(foreignTable, 'create') &&
+        !omit(constraint, 'create') &&
+        !constraint.keyAttributes.some((key) => omit(key, 'create'))
+      const updateable = !omit(foreignTable, 'update') && !omit(constraint, 'update')
       const deleteable =
         nestedMutationsDeleteOthers &&
         foreignTable.primaryKeyConstraint &&
-        !omit(foreignTable, "delete") &&
-        !omit(constraint, "delete");
+        !omit(foreignTable, 'delete') &&
+        !omit(constraint, 'delete')
 
       if (
-        (!connectable && !creatable && !updateable) ||
-        omit(foreignTable, "read")
+        (!connectable && !creatable && !deleteable && !updateable) ||
+        omit(foreignTable, 'read')
         // || primaryKey.keyAttributes.some(key => omit(key, 'read'))
         // || foreignPrimaryKey.keyAttributes.some(key => omit(key, 'read'))
       ) {
-        return;
+        return
       }
 
-      const keys = constraint.keyAttributes;
+      const keys = constraint.keyAttributes
       const isUnique = !!foreignTable.constraints.find(
-        c =>
-          (c.type === "p" || c.type === "u") &&
+        (c) =>
+          (c.type === 'p' || c.type === 'u') &&
           c.keyAttributeNums.length === keys.length &&
-          c.keyAttributeNums.every((n, i) => keys[i].num === n)
-      );
+          c.keyAttributeNums.every((n, i) => keys[i].num === n),
+      )
 
       const fieldName = pgNestedFieldName({
         constraint,
         table,
         foreignTable,
-        isForward
-      });
+        isForward,
+      })
 
       const createInputTypeName = inflection.nestedCreateInputType({
         constraint,
         table,
         foreignTable,
-        isForward
-      });
+        isForward,
+      })
 
       const connectorTypeName = inflection.nestedConnectorType({
         constraint,
         table,
         foreignTable,
-        isForward
-      });
+        isForward,
+      })
 
       const connectorInputField = newWithHooks(
         GraphQLInputObjectType,
@@ -251,15 +248,15 @@ module.exports = function PostGraphileNestedTypesPlugin(
           fields: () => {
             const gqlForeignTableType = getGqlInputTypeByTypeIdAndModifier(
               foreignTable.type.id,
-              null
-            );
-            const operations = {};
+              null,
+            )
+            const operations = {}
 
             if (!isForward && deleteable) {
               operations.deleteOthers = {
                 description: `Flag indicating whether all other \`${foreignTableName}\` records that match this relationship should be removed.`,
-                type: GraphQLBoolean
-              };
+                type: GraphQLBoolean,
+              }
             }
             // console.debug(`\n\n\n\n\n`)
             // console.debug(`${foreignTable.type}: ${foreignTable.name}`)
@@ -267,7 +264,7 @@ module.exports = function PostGraphileNestedTypesPlugin(
             //   console.debug(key, foreignTable[key])
             // })
             // console.debug(`\n\n\n\n\n`)
-            pgNestedTableConnectorFields[foreignTable.id] &&
+            if (pgNestedTableConnectorFields[foreignTable.id])
               pgNestedTableConnectorFields[foreignTable.id].forEach(
                 ({ field, fieldName: connectorFieldName }) => {
                   operations[connectorFieldName] = {
@@ -276,17 +273,31 @@ module.exports = function PostGraphileNestedTypesPlugin(
                       ? field
                       : isUnique
                       ? field
-                      : new GraphQLList(new GraphQLNonNull(field))
-                  };
-                }
-              );
+                      : new GraphQLList(new GraphQLNonNull(field)),
+                  }
+                },
+              )
+            if (deleteable) {
+              pgNestedTableDeleterFields[foreignTable.id].forEach(
+                ({ field, fieldName: deleterFieldName }) => {
+                  operations[deleterFieldName] = {
+                    description: `The primary key(s) for \`${foreignTableName}\` for the far side of the relationship.`,
+                    type: isForward
+                      ? field
+                      : isUnique
+                      ? field
+                      : new GraphQLList(new GraphQLNonNull(field)),
+                  }
+                },
+              )
+            }
             // console.debug(`\n\n\n\n\n`)
             // // console.debug(`${table.type}: ${table.name}`)
             // if (!pgNestedTableUpdaterFields[table.id][constraint.id]) Object.keys(table).forEach(key => {
             //   console.debug(key, table[key])
             // })
             // console.debug(`\n\n\n\n\n`)
-            pgNestedTableUpdaterFields[table.id][constraint.id] &&
+            if (pgNestedTableUpdaterFields[table.id][constraint.id]) {
               pgNestedTableUpdaterFields[table.id][constraint.id].forEach(
                 ({ field, fieldName: updaterFieldName }) => {
                   operations[updaterFieldName] = {
@@ -295,10 +306,11 @@ module.exports = function PostGraphileNestedTypesPlugin(
                       ? field
                       : isUnique
                       ? field
-                      : new GraphQLList(new GraphQLNonNull(field))
-                  };
-                }
-              );
+                      : new GraphQLList(new GraphQLNonNull(field)),
+                  }
+                },
+              )
+            }
             if (creatable) {
               const createInputType = newWithHooks(
                 GraphQLInputObjectType,
@@ -306,24 +318,22 @@ module.exports = function PostGraphileNestedTypesPlugin(
                   name: createInputTypeName,
                   description: `The \`${foreignTableName}\` to be created by this mutation.`,
                   fields: () => {
-                    const inputFields = gqlForeignTableType._fields;
-                    const omittedFields = constraint.keyAttributes.map(k =>
-                      inflection.column(k)
-                    );
+                    const inputFields = gqlForeignTableType._fields
+                    const omittedFields = constraint.keyAttributes.map((k) => inflection.column(k))
                     return Object.keys(inputFields)
-                      .filter(key => !omittedFields.includes(key))
-                      .map(k => Object.assign({}, { [k]: inputFields[k] }))
-                      .reduce((res, o) => Object.assign(res, o), {});
-                  }
+                      .filter((key) => !omittedFields.includes(key))
+                      .map((k) => Object.assign({}, { [k]: inputFields[k] }))
+                      .reduce((res, o) => Object.assign(res, o), {})
+                  },
                 },
                 {
                   isNestedMutationInputType: true,
                   isNestedMutationCreateInputType: true,
                   isNestedInverseMutation: !isForward,
                   pgInflection: table,
-                  pgNestedForeignInflection: foreignTable
-                }
-              );
+                  pgNestedForeignInflection: foreignTable,
+                },
+              )
 
               operations.create = {
                 description: `A \`${
@@ -331,19 +341,19 @@ module.exports = function PostGraphileNestedTypesPlugin(
                 }\` object that will be created and connected to this object.`,
                 type: isForward
                   ? createInputType
-                  : new GraphQLList(new GraphQLNonNull(createInputType))
-              };
+                  : new GraphQLList(new GraphQLNonNull(createInputType)),
+              }
             }
-            return operations;
-          }
+            return operations
+          },
         },
         {
           isNestedMutationConnectorType: true,
           isNestedInverseMutation: !isForward,
           pgInflection: table,
-          pgNestedForeignInflection: foreignTable
-        }
-      );
+          pgNestedForeignInflection: foreignTable,
+        },
+      )
 
       if (isForward) {
         pgNestedPluginForwardInputTypes[table.id].push({
@@ -354,8 +364,8 @@ module.exports = function PostGraphileNestedTypesPlugin(
           keys: constraint.keyAttributes,
           foreignKeys: constraint.foreignKeyAttributes,
           connectorInputField,
-          isUnique
-        });
+          isUnique,
+        })
       } else {
         pgNestedPluginReverseInputTypes[table.id].push({
           name: fieldName,
@@ -365,11 +375,11 @@ module.exports = function PostGraphileNestedTypesPlugin(
           keys: constraint.keyAttributes,
           foreignKeys: constraint.foreignKeyAttributes,
           connectorInputField,
-          isUnique
-        });
+          isUnique,
+        })
       }
-    });
+    })
 
-    return fields;
-  });
-};
+    return fields
+  })
+}

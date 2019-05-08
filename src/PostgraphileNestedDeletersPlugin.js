@@ -1,25 +1,25 @@
-module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
+module.exports = function PostGraphileNestedDeletersPlugin(builder) {
   builder.hook('inflection', (inflection, build) =>
     build.extend(inflection, {
-      nestedConnectByNodeIdField() {
-        return this.camelCase(`connect_by_${build.nodeIdFieldName}`);
+      nestedDeleteByNodeIdField() {
+        return this.camelCase(`delete_by_${build.nodeIdFieldName}`);
       },
-      nestedConnectByKeyField(options) {
+      nestedDeleteByKeyField(options) {
         const { constraint } = options;
         return this.camelCase(
-          `connect_by_${constraint.keyAttributes
+          `delete_by_${constraint.keyAttributes
             .map((k) => k.name)
             .join('_and_')}`,
         );
       },
-      nestedConnectByNodeIdInputType(options) {
+      nestedDeleteByNodeIdInputType(options) {
         const { table } = options;
 
         const tableFieldName = inflection.tableFieldName(table);
 
-        return this.upperCamelCase(`${tableFieldName}_node_id_connect`);
+        return this.upperCamelCase(`${tableFieldName}_node_id_delete`);
       },
-      nestedConnectByKeyInputType(options) {
+      nestedDeleteByKeyInputType(options) {
         const {
           table,
           constraint: {
@@ -31,7 +31,7 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
         const tableFieldName = this.tableFieldName(table);
 
         return this.upperCamelCase(
-          `${tableFieldName}_${tagName || name}_connect`,
+          `${tableFieldName}_${tagName || name}_delete`,
         );
       },
     }),
@@ -48,16 +48,16 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
     } = build;
 
     return extend(build, {
-      pgNestedTableConnectorFields: {},
-      pgNestedTableConnect: async ({
+      pgNestedTableDeleterFields: {},
+      pgNestedTableDelete: async ({
         nestedField,
-        connectorField,
+        deleterField,
         input,
         pgClient,
         parentRow,
       }) => {
-        const { foreignTable, keys, foreignKeys } = nestedField;
-        const { isNodeIdConnector, constraint } = connectorField;
+        const { foreignTable, foreignKeys } = nestedField;
+        const { isNodeIdDeleter, constraint } = deleterField;
 
         const ForeignTableType = pgGetGqlTypeByTypeIdAndModifier(
           foreignTable.type.id,
@@ -65,7 +65,7 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
         );
         let where = '';
 
-        if (isNodeIdConnector) {
+        if (isNodeIdDeleter) {
           const nodeId = input[nodeIdFieldName];
           const primaryKeys = foreignTable.primaryKeyConstraint.keyAttributes;
           const { Type, identifiers } = build.getTypeAndIdentifiersFromNodeId(
@@ -106,21 +106,11 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
         const select = foreignKeys.map((k) => sql.identifier(k.name));
         const query = parentRow
           ? sql.query`
-            update ${sql.identifier(
+            delete from ${sql.identifier(
               foreignTable.namespace.name,
               foreignTable.name,
             )}
-            set ${sql.join(
-              keys.map(
-                (k, i) =>
-                  sql.fragment`${sql.identifier(k.name)} = ${sql.value(
-                    parentRow[foreignKeys[i].name],
-                  )}`,
-              ),
-              ', ',
-            )}
-            where ${where}
-            returning *`
+            where ${where}`
           : sql.query`
               select ${sql.join(select, ', ')}
               from ${sql.identifier(
@@ -145,7 +135,7 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
       pgIntrospectionResultsByKind: introspectionResultsByKind,
       pgGetGqlInputTypeByTypeIdAndModifier: getGqlInputTypeByTypeIdAndModifier,
       pgOmit: omit,
-      pgNestedTableConnectorFields,
+      pgNestedTableDeleterFields,
       graphql: { GraphQLNonNull, GraphQLInputObjectType, GraphQLID },
     } = build;
     const {
@@ -161,7 +151,7 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
       .forEach((table) => {
         const tableFieldName = inflection.tableFieldName(table);
 
-        pgNestedTableConnectorFields[table.id] = table.constraints
+        pgNestedTableDeleterFields[table.id] = table.constraints
           .filter((con) => con.type === 'u' || con.type === 'p')
           .filter((con) => !omit(con))
           .filter((con) => !con.keyAttributes.some((key) => omit(key, 'read')))
@@ -180,19 +170,19 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
             return {
               constraint,
               keys: constraint.keyAttributes,
-              isNodeIdConnector: false,
-              fieldName: inflection.nestedConnectByKeyField({
+              isNodeIdDeleter: false,
+              fieldName: inflection.nestedDeleteByKeyField({
                 table,
                 constraint,
               }),
               field: newWithHooks(
                 GraphQLInputObjectType,
                 {
-                  name: inflection.nestedConnectByKeyInputType({
+                  name: inflection.nestedDeleteByKeyInputType({
                     table,
                     constraint,
                   }),
-                  description: `The fields on \`${tableFieldName}\` to look up the row to connect.`,
+                  description: `The fields on \`${tableFieldName}\` to look up the row to delete.`,
                   fields: () =>
                     keys
                       .map((k) =>
@@ -215,7 +205,7 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
                 },
                 {
                   isNestedMutationInputType: true,
-                  isNestedMutationConnectInputType: true,
+                  isNestedMutationDeleteInputType: true,
                   pgInflection: table,
                   pgFieldInflection: constraint,
                 },
@@ -225,28 +215,28 @@ module.exports = function PostGraphileNestedConnectorsPlugin(builder) {
 
         const { primaryKeyConstraint } = table;
         if (nodeIdFieldName && primaryKeyConstraint) {
-          pgNestedTableConnectorFields[table.id].push({
+          pgNestedTableDeleterFields[table.id].push({
             constraint: null,
             keys: null,
-            isNodeIdConnector: true,
-            fieldName: inflection.nestedConnectByNodeIdField(),
+            isNodeIdDeleter: true,
+            fieldName: inflection.nestedDeleteByNodeIdField(),
             field: newWithHooks(
               GraphQLInputObjectType,
               {
-                name: inflection.nestedConnectByNodeIdInputType({ table }),
+                name: inflection.nestedDeleteByNodeIdInputType({ table }),
                 description:
-                  'The globally unique `ID` look up for the row to connect.',
+                  'The globally unique `ID` look up for the row to delete.',
                 fields: {
                   [nodeIdFieldName]: {
-                    description: `The globally unique \`ID\` which identifies a single \`${tableFieldName}\` to be connected.`,
+                    description: `The globally unique \`ID\` which identifies a single \`${tableFieldName}\` to be deleted.`,
                     type: new GraphQLNonNull(GraphQLID),
                   },
                 },
               },
               {
                 isNestedMutationInputType: true,
-                isNestedMutationConnectInputType: true,
-                isNestedMutationConnectByNodeIdType: true,
+                isNestedMutationDeleteInputType: true,
+                isNestedMutationDeleteByNodeIdType: true,
                 pgInflection: table,
               },
             ),

@@ -262,6 +262,13 @@ module.exports = function PostGraphileNestedTypesPlugin(
                 type: GraphQLBoolean,
               };
             }
+            // console.debug(`\n\n\n\n\n`)
+            // console.debug(`${foreignTable.type}: ${foreignTable.name}`)
+            // if (!pgNestedTableConnectorFields[foreignTable.id]) Object.keys(foreignTable).forEach(key => {
+            //   console.debug(key, foreignTable[key])
+            // })
+            // console.debug(`\n\n\n\n\n`)
+            pgNestedTableConnectorFields[foreignTable.id] &&
             pgNestedTableConnectorFields[foreignTable.id].forEach(
               ({ field, fieldName: connectorFieldName }) => {
                 operations[connectorFieldName] = {
@@ -288,6 +295,13 @@ module.exports = function PostGraphileNestedTypesPlugin(
                 },
               );
             }
+            // console.debug(`\n\n\n\n\n`)
+            // // console.debug(`${table.type}: ${table.name}`)
+            // if (!pgNestedTableUpdaterFields[table.id][constraint.id]) Object.keys(table).forEach(key => {
+            //   console.debug(key, table[key])
+            // })
+            // console.debug(`\n\n\n\n\n`)
+            pgNestedTableUpdaterFields[table.id][constraint.id] &&
             pgNestedTableUpdaterFields[table.id][constraint.id].forEach(
               ({ field, fieldName: updaterFieldName }) => {
                 operations[updaterFieldName] = {

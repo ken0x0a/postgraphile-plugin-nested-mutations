@@ -262,6 +262,7 @@ module.exports = function PostGraphileNestedTypesPlugin(
                 type: GraphQLBoolean,
               };
             }
+            pgNestedTableConnectorFields[foreignTable.id] &&
             pgNestedTableConnectorFields[foreignTable.id].forEach(
               ({ field, fieldName: connectorFieldName }) => {
                 operations[connectorFieldName] = {
@@ -288,6 +289,7 @@ module.exports = function PostGraphileNestedTypesPlugin(
                 },
               );
             }
+            pgNestedTableUpdaterFields[table.id][constraint.id] &&
             pgNestedTableUpdaterFields[table.id][constraint.id].forEach(
               ({ field, fieldName: updaterFieldName }) => {
                 operations[updaterFieldName] = {

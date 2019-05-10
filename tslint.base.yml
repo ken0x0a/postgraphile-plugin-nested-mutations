@@ -1,0 +1,86 @@
+extends:
+  - tslint-react
+  - tslint:latest
+  - tslint-config-prettier
+defaultSeverity: "error"
+# https://palantir.github.io/tslint/rules/
+rules:
+  # 
+  # https://github.com/palantir/tslint-react
+  # 
+  # no-constant-condition: true
+  # jsx-alignment: true ### conflict to prettier
+  jsx-ban-elements: true
+  jsx-boolean-value: [never] # ["always", "never"]
+  jsx-no-lambda: false
+  jsx-no-bind: true
+  jsx-key: true
+
+  # "ban-comma-operator" IS IMPORTANT SINCE THIS MAKES CODE VERY DIFFICULT TO READ
+  ban-comma-operator: true
+  curly: [true, "as-needed"]
+  array-type: [true, "array"]
+  interface-name: [true, "never-prefix"]
+  member-access: true
+  variable-name: [true, 
+    "check-format",
+    "allow-leading-underscore",
+    "allow-trailing-underscore",
+    "allow-pascal-case",
+    "allow-snake-case",
+    "ban-keywords" ]
+  object-literal-sort-keys: false
+  # one-line: false
+  one-variable-per-declaration: [true, "ignore-for-loop"]
+  only-arrow-functions: [false, "allow-declarations", "allow-named-functions"]
+  ordered-imports: true
+  max-classes-per-file: [true, 2]
+  # trailing-comma: [false]
+  # arrow-parens: false
+  prefer-const: [ true, { "destructuring": "all" } ]
+  prefer-conditional-expression: [true, "check-else-if"]
+  member-ordering: # https://palantir.github.io/tslint/rules/member-ordering/
+    - true
+    - alphabetize: true
+      order:
+        - public-static-field
+        - public-static-method
+        - protected-static-field
+        - private-static-field
+        - protected-static-method
+        - private-static-method
+        - public-instance-field
+        - protected-instance-field
+        - private-instance-field
+        - public-constructor
+        - private-constructor
+        - public-instance-method
+        - protected-instance-method
+        - private-instance-method
+  # no-var-requires: false
+  no-bitwise: true
+  no-console: false
+  # no-empty: false
+  no-empty-interface: false
+  no-object-literal-type-assertion: [true,
+    "allow-arguments" # useful for Array#reduce https://github.com/palantir/tslint/pull/4521
+  ] 
+  # no-string-literal: false
+  no-implicit-dependencies: [true]
+  no-shadowed-variable: [ true,
+    {
+      "class": true,
+      "enum": true,
+      "function": true,
+      "import": true,
+      "interface": false,
+      "namespace": true,
+      "typeAlias": false,
+      "typeParameter": false,
+      "temporalDeadZone": false
+    }
+  ]
+  no-submodule-imports: [true]
+  no-this-assignment: [ true, { "allow-destructuring": true } ]
+  # no-unused-variable: [true, { "ignore-pattern": "^_" }] # deprecated. Since TypeScript 2.9. Please use the built-in compiler checks instead.
+  no-unused-expression: [true, "allow-fast-null-checks"]

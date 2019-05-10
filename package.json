@@ -17,21 +17,22 @@
     "lint": "eslint index.js src/**/*.js"
   },
   "dependencies": {
-    "graphile-build-pg": "^4.2.0"
+    "graphile-build-pg": "^4.4.0"
   },
   "peerDependencies": {
-    "postgraphile-core": "^4.2.0"
+    "postgraphile-core": "^4.4.0"
   },
   "devDependencies": {
-    "@graphile-contrib/pg-simplify-inflector": "^4.0.0-alpha.0",
+    "@graphile-contrib/pg-simplify-inflector": "^5.0.0-beta.1",
+    "debug": "4.1.1",
     "eslint": "^5.10.0",
     "eslint-config-airbnb-base": "^13.1.0",
     "eslint-plugin-import": "^2.14.0",
     "graphql": "^14.0.2",
     "jest": "^23.6.0",
     "jest-junit": "^5.2.0",
-    "pg": "^7.7.1",
-    "postgraphile-core": "^4.2.0"
+    "pg": "^7.10.0",
+    "postgraphile-core": "^4.4.0"
   },
   "jest": {
     "testRegex": "__tests__/.*\\.test\\.js$",
@@ -42,55 +43,5 @@
   },
   "files": [
     "src"
-  ],
-  "eslintConfig": {
-    "parserOptions": {
-      "ecmaFeatures": {
-        "jsx": true
-      }
-    },
-    "extends": [
-      "airbnb-base"
-    ],
-    "env": {
-      "jest": true
-    },
-    "globals": {
-      "expect": false,
-      "jasmine": false
-    },
-    "rules": {
-      "import/no-unresolved": 0,
-      "import/no-extraneous-dependencies": 0,
-      "import/extensions": 0,
-      "import/prefer-default-export": 0,
-      "max-len": 0,
-      "symbol-description": 0,
-      "no-nested-ternary": 0,
-      "no-alert": 0,
-      "no-console": 0,
-      "no-plusplus": 0,
-      "no-restricted-globals": 0,
-      "no-underscore-dangle": [
-        "error",
-        {
-          "allow": [
-            "_fields"
-          ]
-        }
-      ],
-      "no-return-assign": [
-        "error",
-        "except-parens"
-      ],
-      "class-methods-use-this": 0,
-      "prefer-destructuring": [
-        "error",
-        {
-          "object": true,
-          "array": false
-        }
-      ]
-    }
-  }
+  ]
 }

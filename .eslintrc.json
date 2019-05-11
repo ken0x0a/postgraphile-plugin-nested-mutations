@@ -1,11 +1,10 @@
 {
-  "parserOptions": {
-    "ecmaFeatures": {
-      "jsx": true
-    }
-  },
   "extends": [
-    "airbnb-base"
+    "airbnb-base",
+    "prettier"
+  ],
+  "plugins": [
+    "prettier"
   ],
   "env": {
     "jest": true
@@ -15,6 +14,7 @@
     "jasmine": false
   },
   "rules": {
+    "prettier/prettier": "error",
     "import/no-unresolved": 0,
     "import/no-extraneous-dependencies": 0,
     "import/extensions": 0,

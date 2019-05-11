@@ -184,7 +184,7 @@ module.exports = function PostGraphileNestedTypesPlugin(
 
       const foreignTableName = inflection.tableFieldName(foreignTable)
       // console.debug({ foreignTableName, tableName: table.name })
-      console.debug({ foreignTableName: foreignTable.name, tableName: table.name })
+      // console.debug({ foreignTableName: foreignTable.name, tableName: table.name })
 
       const foreignUniqueConstraints = foreignTable.constraints
         .filter((con) => con.type === 'u' || con.type === 'p')

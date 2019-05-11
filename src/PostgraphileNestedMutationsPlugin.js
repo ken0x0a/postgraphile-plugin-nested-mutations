@@ -248,8 +248,6 @@ module.exports = function PostGraphileNestedMutationPlugin(
       )
       const insertedRowAlias = sql.identifier(Symbol())
       const query = queryFromResolveData(insertedRowAlias, insertedRowAlias, resolveData, {})
-      const insertedRowAlias = sql.identifier(Symbol())
-      const query = queryFromResolveData(insertedRowAlias, insertedRowAlias, resolveData, {})
 
       try {
         await pgClient.query('SAVEPOINT graphql_nested_mutation')

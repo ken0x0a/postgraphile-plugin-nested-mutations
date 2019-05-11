@@ -190,6 +190,17 @@ module.exports = function PostGraphileNestedUpdatersPlugin(
           .forEach((constraint) => {
             const foreignTable =
               constraint.classId === table.id ? constraint.foreignClass : constraint.class
+
+            /**
+             * whitelist
+             */
+            if (
+              nestedMutationsTableNameWhiteList &&
+              nestedMutationsTableNameWhiteList[table.name] &&
+              !nestedMutationsTableNameWhiteList[table.name][foreignTable.name]
+            )
+              return
+
             const ForeignTableType = pgGetGqlTypeByTypeIdAndModifier(foreignTable.type.id, null)
             const foreignTableFieldName = inflection.tableFieldName(foreignTable)
             const patchFieldName = inflection.patchField(foreignTableFieldName)

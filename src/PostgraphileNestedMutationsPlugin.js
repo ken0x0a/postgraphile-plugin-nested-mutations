@@ -2,7 +2,10 @@ const debugFactory = require('debug')
 
 const debug = debugFactory('postgraphile-plugin-nested-mutations')
 
-module.exports = function PostGraphileNestedMutationPlugin(builder) {
+module.exports = function PostGraphileNestedMutationPlugin(
+  builder,
+  { nestedMutationsTableNameWhiteList } = {},
+) {
   builder.hook('GraphQLInputObjectType:fields', (fields, build, context) => {
     const {
       inflection,
@@ -23,6 +26,12 @@ module.exports = function PostGraphileNestedMutationPlugin(builder) {
     ) {
       return fields
     }
+
+    /**
+     * whitelist
+     */
+    if (nestedMutationsTableNameWhiteList && !nestedMutationsTableNameWhiteList[table.name])
+      return fields
 
     pgNestedPluginForwardInputTypes[table.id].forEach(({ name, keys, connectorInputField }) => {
       // Allow nulls on keys that have forward mutations available.
@@ -112,6 +121,17 @@ module.exports = function PostGraphileNestedMutationPlugin(builder) {
           .filter((k) => input[k.name])
           .map(async (nestedField) => {
             const { constraint, foreignTable, keys, foreignKeys, name: fieldName } = nestedField
+
+            /**
+             * whitelist
+             */
+            if (
+              nestedMutationsTableNameWhiteList &&
+              nestedMutationsTableNameWhiteList[table.name] &&
+              !nestedMutationsTableNameWhiteList[table.name][foreignTable.name]
+            )
+              return
+
             const fieldValue = input[fieldName]
 
             await Promise.all(

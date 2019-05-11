@@ -139,8 +139,11 @@ module.exports = function PostGraphileNestedTypesPlugin(
       return fields
     }
 
-    // if (nestedMutationsTableNameWhiteList && !nestedMutationsTableNameWhiteList[table.name])
-    //   return fields
+    /**
+     * whitelist
+     */
+    if (nestedMutationsTableNameWhiteList && !nestedMutationsTableNameWhiteList[table.name])
+      return fields
 
     const foreignKeyConstraints = introspectionResultsByKind.constraint
       .filter((con) => con.type === 'f')
@@ -153,7 +156,7 @@ module.exports = function PostGraphileNestedTypesPlugin(
     }
 
     const tableTypeName = gqlType.name
-    console.log({ tableTypeName, tableName: table.name })
+    // console.log({ tableTypeName, tableName: table.name })
     pgNestedPluginForwardInputTypes[table.id] = []
     pgNestedPluginReverseInputTypes[table.id] = []
 
@@ -168,7 +171,19 @@ module.exports = function PostGraphileNestedTypesPlugin(
         throw new Error(`Could not find the foreign table (constraint: ${constraint.name})`)
       }
 
+      /**
+       * whitelist
+       */
+      if (
+        nestedMutationsTableNameWhiteList &&
+        nestedMutationsTableNameWhiteList[table.name] &&
+        !nestedMutationsTableNameWhiteList[table.name][foreignTable.name]
+      )
+        return
+
       const foreignTableName = inflection.tableFieldName(foreignTable)
+      // console.debug({ foreignTableName, tableName: table.name })
+      console.debug({ foreignTableName: foreignTable.name, tableName: table.name })
 
       const foreignUniqueConstraints = foreignTable.constraints
         .filter((con) => con.type === 'u' || con.type === 'p')

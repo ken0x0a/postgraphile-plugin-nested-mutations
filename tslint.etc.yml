@@ -1,0 +1,11 @@
+# https://github.com/cartant/tslint-etc
+# https://cartant.github.io/tslint-etc/
+extends:
+  - tslint-etc
+# https://palantir.github.io/tslint/rules/
+rules:
+  no-unused-declaration:
+    options:
+      - declarations: false
+        imports: true
+    severity: error

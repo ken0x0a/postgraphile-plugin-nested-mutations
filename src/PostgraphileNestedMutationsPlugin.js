@@ -658,7 +658,6 @@ module.exports = function PostGraphileNestedMutationPlugin(
           mutationData = finalRows[0];
         }
 
-        await pgClient.query('RELEASE SAVEPOINT graphql_nested_mutation');
         return {
           clientMutationId: input.clientMutationId,
           data: mutationData,
@@ -667,6 +666,8 @@ module.exports = function PostGraphileNestedMutationPlugin(
         debug(e);
         await pgClient.query('ROLLBACK TO SAVEPOINT graphql_nested_mutation');
         throw e;
+      } finally {
+        await pgClient.query('RELEASE SAVEPOINT graphql_nested_mutation');
       }
     };
 

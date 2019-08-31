@@ -17,7 +17,7 @@
     "lint": "eslint index.js src/**/*.js"
   },
   "dependencies": {
-    "graphile-build-pg": "^4.4.0"
+    "graphile-build-pg": "^4.4.4"
   },
   "peerDependencies": {
     "postgraphile-core": "^4.4.0"

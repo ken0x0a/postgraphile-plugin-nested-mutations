@@ -34,7 +34,8 @@
     "jest": "^23.6.0",
     "jest-junit": "^5.2.0",
     "pg": "^7.10.0",
-    "postgraphile-core": "^4.4.0"
+    "postgraphile-core": "^4.4.0",
+    "prettier": "^1.16.4"
   },
   "jest": {
     "testRegex": "__tests__/.*\\.test\\.js$",

@@ -45,6 +45,7 @@
     ]
   },
   "files": [
-    "src"
+    "src",
+    "index.js"
   ]
 }
